@@ -5,11 +5,43 @@ from yacs.config import CfgNode as CN
 import argparse
 import yaml
 import os
+import sys
 
 cfg = CN()
 
 abs_deca_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-cfg.deca_dir = abs_deca_dir
+if hasattr(sys, '_MEIPASS'):
+    # Running as a PyInstaller executable
+    cfg.deca_dir = sys._MEIPASS
+    print("meipass!", cfg.deca_dir )
+    for root, dirs, files in os.walk(cfg.deca_dir, topdown=True):
+        for name in files:
+            if "python" in root or "python" in name:
+                print(os.path.join(root, name))
+        for name in dirs:
+            if "python" in root or "python" in name:
+                print(os.path.join(root, name))
+
+    print("ALSO")
+    for root, dirs, files in os.walk(os.path.join(cfg.deca_dir, "torch/include/torch/csrc/api/include/"), topdown=True):
+        for name in files:
+            print(os.path.join(root, name))
+        for name in dirs:
+            print(os.path.join(root, name))
+
+    print("LOOK FOR INCLUDES")
+    for root, dirs, files in os.walk(os.path.join(cfg.deca_dir, "include"), topdown=True):
+        for name in files:
+            print(os.path.join(root, name))
+        for name in dirs:
+            print(os.path.join(root, name))
+
+else:
+    # Running in a normal Python environment
+    cfg.deca_dir = abs_deca_dir
+    print("regular!", cfg.deca_dir )
+
+# cfg.deca_dir = abs_deca_dir
 cfg.device = 'cuda'
 cfg.device_id = '0'
 
@@ -25,7 +57,9 @@ cfg.model.topology_path = os.path.join(cfg.deca_dir, 'data', 'head_template.obj'
 cfg.model.dense_template_path = os.path.join(cfg.deca_dir, 'data', 'texture_data_256.npy')
 cfg.model.fixed_displacement_path = os.path.join(cfg.deca_dir, 'data', 'fixed_displacement_256.npy')
 cfg.model.flame_model_path = os.path.join(cfg.deca_dir, 'data', 'generic_model.pkl') 
-cfg.model.flame_lmk_embedding_path = os.path.join(cfg.deca_dir, 'data', 'landmark_embedding.npy') 
+cfg.model.flame_lmk_embedding_path = os.path.abspath(os.path.join(cfg.deca_dir, 'data', 'landmark_embedding.npy') )
+print(os.path.abspath(os.path.join(cfg.deca_dir, 'data', 'landmark_embedding.npy')))
+print(os.path.join(cfg.deca_dir, 'data', 'landmark_embedding.npy'))
 cfg.model.face_mask_path = os.path.join(cfg.deca_dir, 'data', 'uv_face_mask.png') 
 cfg.model.face_eye_mask_path = os.path.join(cfg.deca_dir, 'data', 'uv_face_eye_mask.png') 
 cfg.model.mean_tex_path = os.path.join(cfg.deca_dir, 'data', 'mean_texture.jpg') 

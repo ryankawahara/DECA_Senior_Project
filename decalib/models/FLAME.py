@@ -18,7 +18,7 @@ import torch.nn as nn
 import numpy as np
 import pickle
 import torch.nn.functional as F
-
+import os
 from .lbs import lbs, batch_rodrigues, vertices2landmarks, rot_mat_to_euler
 
 def to_tensor(array, dtype=torch.float32):
@@ -43,7 +43,10 @@ class FLAME(nn.Module):
     def __init__(self, config):
         super(FLAME, self).__init__()
         print("creating the FLAME Decoder")
-        with open(config.flame_model_path, 'rb') as f:
+        print(os.getcwd())
+        with open("generic_model.pkl", 'rb') as f:
+        # with open(config.flame_model_path, 'rb') as f:
+
             ss = pickle.load(f, encoding='latin1')
             flame_model = Struct(**ss)
 

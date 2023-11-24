@@ -25,7 +25,7 @@ from skimage.transform import estimate_transform, warp, resize, rescale
 from glob import glob
 import scipy.io
 
-from . import detectors
+# from . import detectors
 
 def video2sequence(video_path, sample_step=10):
     videofolder = os.path.splitext(video_path)[0]
@@ -68,7 +68,7 @@ class TestData(Dataset):
         self.iscrop = iscrop
         self.resolution_inp = crop_size
         if face_detector == 'fan':
-            self.face_detector = detectors.FAN()
+            self.face_detector = FAN()
         # elif face_detector == 'mtcnn':
         #     self.face_detector = detectors.MTCNN()
         else:
@@ -141,3 +141,47 @@ class TestData(Dataset):
                 'tform': torch.tensor(tform.params).float(),
                 'original_image': torch.tensor(image.transpose(2,0,1)).float(),
                 }
+
+class FAN(object):
+    def __init__(self):
+        import face_alignment
+        self.model = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input = False)
+
+    def run(self, image):
+        '''
+        image: 0-255, uint8, rgb, [h, w, 3]
+        return: detected box list
+        '''
+        out = self.model.get_landmarks(image)
+        if out is None:
+            return [0], 'kpt68'
+        else:
+            kpt = out[0].squeeze()
+            left = np.min(kpt[:, 0]);
+            right = np.max(kpt[:, 0]);
+            top = np.min(kpt[:, 1]);
+            bottom = np.max(kpt[:, 1])
+            bbox = [left, top, right, bottom]
+            return bbox, 'kpt68'
+
+    class MTCNN(object):
+        def __init__(self, device='cpu'):
+            '''
+            https://github.com/timesler/facenet-pytorch/blob/master/examples/infer.ipynb
+            '''
+            from facenet_pytorch import MTCNN as mtcnn
+            self.device = device
+            self.model = mtcnn(keep_all=True)
+
+        def run(self, input):
+            '''
+            image: 0-255, uint8, rgb, [h, w, 3]
+            return: detected box
+            '''
+            out = self.model.detect(input[None, ...])
+            if out[0][0] is None:
+                return [0]
+            else:
+                bbox = out[0][0].squeeze()
+                return bbox, 'bbox'
+

@@ -16,13 +16,12 @@
 import os, sys
 import cv2
 import numpy as np
-from time import time
 import argparse
 import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from decalib.deca import DECA
-from decalib.datasets import datasets 
+from decalib import datasets
 from decalib.utils import util
 from decalib.utils.config import cfg as deca_cfg
 
@@ -67,8 +66,7 @@ def main(args):
         os.makedirs(os.path.join(savefolder, name, 'animation'), exist_ok=True)
     
     # -- save results
-    image_name = name
-    for save_type in ['reconstruction', 'animation']:
+po    for save_type in ['reconstruction', 'animation']:
         if save_type == 'reconstruction':
             visdict = id_codedict; opdict = id_opdict
         else:

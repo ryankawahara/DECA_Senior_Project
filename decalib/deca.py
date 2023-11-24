@@ -13,25 +13,23 @@
 # For comments or questions, please email us at deca@tue.mpg.de
 # For commercial licensing contact, please contact ps-license@tuebingen.mpg.de
 
-import os, sys
+import os
 import torch
 import torchvision
 import torch.nn.functional as F
 import torch.nn as nn
 
 import numpy as np
-from time import time
 from skimage.io import imread
-import cv2
-import pickle
 from .utils.renderer import SRenderY, set_rasterizer
 from .models.encoders import ResnetEncoder
 from .models.FLAME import FLAME, FLAMETex
 from .models.decoders import Generator
 from .utils import util
+from . import datasets
 from .utils.rotation_converter import batch_euler2axis
 from .utils.tensor_cropper import transform_points
-from .datasets import datasets
+# from . import datasets
 from .utils.config import cfg
 torch.backends.cudnn.benchmark = True
 
@@ -261,21 +259,35 @@ class DECA(nn.Module):
         else:
             return opdict
 
-    def visualize(self, visdict, size=224, dim=2):
+    def visualize(self, visdict, outputVisdict=None, size=224, dim=2):
         '''
         image range should be [0,1]
         dim: 2 for horizontal. 1 for vertical
         '''
         assert dim == 1 or dim==2
         grids = {}
+        newVals = ["shape_images", "shape_detail_images"]
+        for val in newVals:
+            visdict[f"{val}_new"] = outputVisdict[val]
+
         for key in visdict:
-            _,_,h,w = visdict[key].shape
+            obj = visdict[key]
+            # if outputVisdict:
+            #     if key in newVals:
+            #         obj = outputVisdict[key]
+            # print(key, obj.shape)
+            _,_,h,w = obj.shape
             if dim == 2:
                 new_h = size; new_w = int(w*size/h)
             elif dim == 1:
                 new_h = int(h*size/w); new_w = size
-            grids[key] = torchvision.utils.make_grid(F.interpolate(visdict[key], [new_h, new_w]).detach().cpu())
+            grids[key] = torchvision.utils.make_grid(F.interpolate(obj, [new_h, new_w]).detach().cpu())
+
+
+
+
         grid = torch.cat(list(grids.values()), dim)
+        print(grid)
         grid_image = (grid.numpy().transpose(1,2,0).copy()*255)[:,:,[2,1,0]]
         grid_image = np.minimum(np.maximum(grid_image, 0), 255).astype(np.uint8)
         return grid_image
@@ -285,6 +297,7 @@ class DECA(nn.Module):
         vertices: [nv, 3], tensor
         texture: [3, h, w], tensor
         '''
+        print(opdict.keys())
         i = 0
         vertices = opdict['verts'][i].cpu().numpy()
         faces = self.render.faces[0].cpu().numpy()

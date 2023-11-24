@@ -16,7 +16,6 @@
 import os, sys
 import cv2
 import numpy as np
-from time import time
 from scipy.io import savemat
 import argparse
 from tqdm import tqdm
@@ -27,17 +26,16 @@ from decalib.deca import DECA
 from decalib.datasets import datasets
 from decalib.utils import util
 from decalib.utils.config import cfg as deca_cfg
-from decalib.utils.tensor_cropper import transform_points
 from decalib.utils.rotation_converter import batch_euler2axis, deg2rad
 
 
 def main(args):
-    expdata = datasets.TestData(args.exp_path, iscrop=args.iscrop, face_detector=args.detector)
     # if args.rasterizer_type != 'standard':
     #     args.render_orig = False
     savefolder = args.savefolder
     device = args.device
     os.makedirs(savefolder, exist_ok=True)
+    expdata = datasets.TestData(args.exp_path, iscrop=args.iscrop, face_detector=args.detector)
 
     # load test images
     testdata = datasets.TestData(args.inputpath, iscrop=args.iscrop, face_detector=args.detector, sample_step=args.sample_step)
@@ -53,6 +51,12 @@ def main(args):
         images = testdata[i]['image'].to(device)[None,...]
         with torch.no_grad():
             codedict = deca.encode(images)
+            before_opdict, before_visdict = deca.decode(codedict) #tensor
+            if args.render_orig:
+                tform = testdata[i]['tform'][None, ...]
+                tform = torch.inverse(tform).transpose(1,2).to(device)
+                original_image = testdata[i]['original_image'][None, ...].to(device)
+                _, orig_visdict = deca.decode(codedict, render_orig=True, original_image=original_image, tform=tform)
 
             exp_images = expdata[1]['image'].to(device)[None,...]
             exp_codedict = deca.encode(exp_images)
@@ -64,20 +68,14 @@ def main(args):
             global_pose = batch_euler2axis(deg2rad(euler_pose[:, :3].cuda()))
             codedict['pose'][:,:3] = global_pose
 
-
-            print("the current neck rotation is", codedict['pose'][:,:3])
-
-            print("POSE", codedict['pose'])
             opdict, visdict = deca.decode(codedict) #tensor
-            if args.render_orig:
-                tform = testdata[i]['tform'][None, ...]
-                tform = torch.inverse(tform).transpose(1,2).to(device)
-                original_image = testdata[i]['original_image'][None, ...].to(device)
-                _, orig_visdict = deca.decode(codedict, render_orig=True, original_image=original_image, tform=tform)
-                orig_visdict['inputs'] = original_image
-                print(orig_visdict.keys())
-                print("opdict", opdict.keys())
-                print("visdict", visdict.keys())
+            # if args.render_orig:
+            #     tform = testdata[i]['tform'][None, ...]
+            #     tform = torch.inverse(tform).transpose(1,2).to(device)
+                # original_image = testdata[i]['original_image'][None, ...].to(device)
+                # _, orig_visdict = deca.decode(codedict, render_orig=True, original_image=original_image, tform=tform)
+                # orig_visdict['inputs'] = original_image
+
 
         if args.saveDepth or args.saveKpt or args.saveObj or args.saveMat or args.saveImages:
             os.makedirs(os.path.join(savefolder, name), exist_ok=True)
@@ -95,9 +93,10 @@ def main(args):
             opdict = util.dict_tensor2npy(opdict)
             savemat(os.path.join(savefolder, name, name + '.mat'), opdict)
         if args.saveVis:
-            cv2.imwrite(os.path.join(savefolder, name + '_vis.jpg'), deca.visualize(visdict))
+            # change this part
+            cv2.imwrite(os.path.join(savefolder, name + '_vis.jpg'), deca.visualize(before_visdict, visdict))
             if args.render_orig:
-                cv2.imwrite(os.path.join(savefolder, name + '_vis_original_size.jpg'), deca.visualize(orig_visdict))
+                cv2.imwrite(os.path.join(savefolder, name + '_vis_original_size.jpg'), deca.visualize(orig_visdict, visdict))
         if args.saveImages:
             for vis_name in ['inputs', 'rendered_images', 'albedo_images', 'shape_images', 'shape_detail_images', 'landmarks2d']:
                 if vis_name not in visdict.keys():
